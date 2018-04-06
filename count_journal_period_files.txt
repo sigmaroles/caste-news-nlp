@@ -1,0 +1,25 @@
+Journal :  IN-indianexpress-india
+Period :  2016-1S  6815
+Period :  2016-2S  32233
+Period :  2017-1S  23697
+Period :  2017-2S  18933
+Journal :  IN-thetimesofindia
+Period :  2016-1S  5384
+Period :  2016-2S  5596
+Period :  2017-1S  4671
+Period :  2017-2S  4231
+Journal :  IN-indianexpress-editorials
+Period :  2016-1S  374
+Period :  2016-2S  920
+Period :  2017-1S  774
+Period :  2017-2S  772
+Journal :  IN-indianexpress-opinion
+Period :  2016-1S  666
+Period :  2016-2S  2278
+Period :  2017-1S  2058
+Period :  2017-2S  1864
+Journal :  IN-thehindu-opinion
+Period :  2016-1S  863
+Period :  2016-2S  2519
+Period :  2017-1S  2493
+Period :  2017-2S  1966
