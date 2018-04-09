@@ -1,15 +1,19 @@
 lower_caste_keywords = ['dalit', 'untouchable', 'sc_st', 'obc', 'lower_caste', 'minorities', 'backward_class']
 upper_caste_keywords = ['upper_caste', 'brahmin', 'kshatriya', 'vaishya']
 
-priviledge_keywords = ['government', 'democracy', 'election', 'college', 'education', 'scholar', 'merit', 'meritorious', 'employer', 
-'national', 'international', 'rich']
+priviledge_keywords = ['government', 'democracy', 'election', 'college', 'education', 'scholar', 'merit', 'meritorious', 'employer', 'national', 'international', 'rich']
 negative_aspect = ['poor', 'violence', 'disease', 'unhealthy', 'incident', 'crime']
 positive_aspect = ['empathy', 'care', 'companion', 'friend', 'healthy', 'prosperity']
 
 neutral_keywords = ['individual', 'man', 'woman', 'person', 'people', 'subject', 'object', 'human', 'market']
 
+from gensim.models import Word2Vec
+from util_kw import *
 import numpy as np
+import itertools
+import os
 from scipy import spatial
+
 
 def add_to_graph(word, assoclist, graph):
     graph.add_node(word)
@@ -31,25 +35,30 @@ def recurse_add_(word, wvmodel, graph, depth=1, topn=5):
             aword, _ = wtuple
             recurse_add_(aword, wvmodel, graph, depth=depth-1, topn=topn)
 
-def recurse_add_dict(word, wvmodel, worddict, depth=1, topn=5):
-    alist = wvmodel.most_similar(word, topn=topn)
-    worddict[word] = alist
+
+def word_add_(word, wvmodel, lista, depth=1, topn=5):
     if depth==1:
+        lista[word] = wvmodel.most_similar(word, topn=topn)
         return
     else:
-        for aword in alist:
-            recurse_add_dict(aword, wvmodel, worddict, depth=depth-1, topn=topn)
+        for wtuple in wvmodel.most_similar(word, topn=topn):
+            aword, _ = wtuple
+            word_add_(aword, wvmodel, lista, depth=depth-1, topn=topn)
 
 
-def get_words(wvm, keywords, depth, tn):
+"""
+get all words from word2vec model(wvm) within topn = tn related to the word keyword
+"""
+def get_words(wvm, keyword, depth=2, tn=5):
     vocab = wvm.vocab
     all_words = [x for x in vocab.keys()]
     l_words_dict = {}
-    for word in keywords:
-        if word in all_words:
-            recurse_add_dict(word, wvm, l_words_dict, depth=depth, topn=tn)
-        else:
-            print ("Word "+word+" not found.")
+    
+    if keyword in all_words:
+        word_add_(keyword, wvm, l_words_dict, depth=depth, topn=tn)
+    else:
+        #print ("Word "+keyword+" not found.")
+        raise ValueError
 
     l_words_simpl = {}
     for w in l_words_dict :
@@ -57,6 +66,7 @@ def get_words(wvm, keywords, depth, tn):
         for ww in l_words_dict[w]:
             l_words_simpl[ww[0]]=ww[1]
     return l_words_simpl
+
 
 def similarity(list1,list2, wvm):
     l1_keys = list(list1.keys())
@@ -66,16 +76,38 @@ def similarity(list1,list2, wvm):
     l1 = len(l1_keys)
     for i in range(1,l1):
         t1 = np.sum((t1,wvm[l1_keys[i]]),axis=0)
-    t2 = wvm[list(list2.keys())[0]]
+    t2 = wvm[l2_keys[0]]
     l2 = len(l2_keys)
     for i in range(1,l2):
         t2 = np.sum((t2,wvm[l2_keys[i]]),axis=0)
     return 1 - spatial.distance.cosine(t1/l1, t2/l2)
 
+path_models = 'word2vec_models'
+journalfilenames = ['IN-thehindu-opinion_with_phraser',
+    'IN-indianexpress-india_with_phraser',
+    'IN-indianexpress-opinion_with_phraser',
+    'IN-indianexpress-editorials_with_phraser',
+    'IN-thetimesofindia_00_with_phraser',
+    'IN-thetimesofindia_01_with_phraser']
+
+def print_similarities_between_k_lists(klist1, klist2):
+    for journal in journalfilenames:
+        print ("\n\t JOURNAL : "+journal)
+        wvm = Word2Vec.load(path_models+'/'+journalfilenames[-1]).wv
+        permut1 = list(itertools.chain(itertools.product(klist1, klist2)))
+        for pair in permut1:
+            word1, word2 = pair
+            try:
+                list1 = get_words(wvm, word1)
+                list2 = get_words(wvm, word2)
+            except ValueError:
+                continue
+            sim = similarity(list1, list2, wvm)
+            print ("Similarity between cluster defined by {0} and {1} is {2:.4f}".format(word1, word2, sim))
 
 if __name__=='__main__':
-    print ("hola")
-
+    
+    print_similarities_between_k_lists(negative_aspect, upper_caste_keywords)
 
 """
 Our question/conclusion:
