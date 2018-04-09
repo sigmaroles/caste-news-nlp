@@ -83,17 +83,16 @@ def similarity(list1,list2, wvm):
     return 1 - spatial.distance.cosine(t1/l1, t2/l2)
 
 path_models = 'word2vec_models'
-journalfilenames = ['IN-thehindu-opinion_with_phraser',
-    'IN-indianexpress-india_with_phraser',
-    'IN-indianexpress-opinion_with_phraser',
-    'IN-indianexpress-editorials_with_phraser',
-    'IN-thetimesofindia_00_with_phraser',
-    'IN-thetimesofindia_01_with_phraser']
+journalfilenames = ['IN-thehindu-opinion',
+    'IN-indianexpress-india',
+    'IN-indianexpress-opinion',
+    'IN-indianexpress-editorials',
+    'IN-thetimesofindia_00',
+    'IN-thetimesofindia_01']
 
 def print_similarities_between_k_lists(klist1, klist2):
     for journal in journalfilenames:
-        print ("\n\t JOURNAL : "+journal)
-        wvm = Word2Vec.load(path_models+'/'+journalfilenames[-1]).wv
+        wvm = Word2Vec.load(path_models+'/'+journalfilenames[-1]+'_with_phraser').wv
         permut1 = list(itertools.chain(itertools.product(klist1, klist2)))
         for pair in permut1:
             word1, word2 = pair
@@ -103,7 +102,7 @@ def print_similarities_between_k_lists(klist1, klist2):
             except ValueError:
                 continue
             sim = similarity(list1, list2, wvm)
-            print ("Similarity between cluster defined by {0} and {1} is {2:.4f}".format(word1, word2, sim))
+            print ("Journal {0} ; between {1} and {2} is {3:.4f}".format(journal, word1, word2, sim))
 
 if __name__=='__main__':
     
