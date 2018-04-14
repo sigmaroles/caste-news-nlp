@@ -8,9 +8,10 @@ positive_aspect = ['empathy', 'care', 'companion', 'friend', 'healthy', 'prosper
 neutral_keywords = ['individual', 'man', 'woman', 'person', 'people', 'subject', 'object', 'human', 'market']
 
 from gensim.models import Word2Vec
-from util_kw import *
+from gensim.models.phrases import Phraser
 import numpy as np
 import itertools
+from collections import defaultdict, OrderedDict
 import os
 from scipy import spatial
 
@@ -34,6 +35,33 @@ def recurse_add_(word, wvmodel, graph, depth=1, topn=5):
             aword, _ = wtuple
             recurse_add_(aword, wvmodel, graph, depth=depth-1, topn=topn)
 
+def count_words(myp_p, journ, path_phraser_models, lista):
+    fpath = path_phraser_models + '/' + journ + '_00_bigramphraser'
+    print (fpath)
+    
+    bigram = Phraser.load(fpath)
+    texts = {}
+    
+    for fname in os.listdir(myp_p):
+        text = []
+        for line in open(myp_p + '/' + fname, 'r'):
+            text = text + bigram[line.split()]
+        frequency = defaultdict(float)
+        for word in text:
+            frequency[word] += 1
+        
+        texts[fname] = frequency
+    
+    word_count = {}   
+    
+    for fname in texts.keys():
+        count = 0.0
+        for word in lista.keys() :
+            if word in texts[fname].keys() :
+                count = count + texts[fname][word] * lista[word]
+        word_count[fname] = count
+        
+    return word_count
 
 def word_add_(word, wvmodel, lista, depth=1, topn=5):
     if depth==1:
@@ -81,6 +109,7 @@ def similarity(list1,list2, wvm):
         t2 = np.sum((t2,wvm[l2_keys[i]]),axis=0)
     return 1 - spatial.distance.cosine(t1/l1, t2/l2)
 
+"""
 path_models = 'word2vec_models'
 journalfilenames = ['IN-thehindu-opinion',
     'IN-indianexpress-india',
@@ -102,15 +131,4 @@ def print_similarities_between_k_lists(klist1, klist2):
                 continue
             sim = similarity(list1, list2, wvm)
             print ("Journal {0} ; between {1} and {2} is {3:.4f}".format(journal, word1, word2, sim))
-
-if __name__=='__main__':
-    
-    print_similarities_between_k_lists(negative_aspect, upper_caste_keywords)
-
-"""
-Our question/conclusion:
-How closely are the set of negative and positive words associated with
-* lower caste?
-* neutral topics?
-* upper caste?
 """
