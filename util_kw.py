@@ -14,8 +14,6 @@ import itertools
 import os
 from scipy import spatial
 
-# blah update .. to test git script another
-
 def add_to_graph(word, assoclist, graph):
     graph.add_node(word)
     for wtuple in assoclist:
