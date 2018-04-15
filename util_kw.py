@@ -148,3 +148,4 @@ def similarity(list1,list2, wvm):
     for i in range(1,l2):
         t2 = np.sum((t2,wvm[l2_keys[i]]),axis=0)
     return 1 - spatial.distance.cosine(t1/l1, t2/l2)
+
