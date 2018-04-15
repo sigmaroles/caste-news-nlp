@@ -15,84 +15,124 @@ from collections import defaultdict, OrderedDict
 import os
 from scipy import spatial
 
-def add_to_graph(word, assoclist, graph):
-    graph.add_node(word)
-    for wtuple in assoclist:
-        kword, kweight = wtuple
-        graph.add_node(kword)
-        graph.add_edge(word, kword, weight=kweight)
-        
-def recurse_add_(word, wvmodel, graph, depth=1, topn=5):
-    if depth==1:
-        # call add_to_graph and return
-        alist = wvmodel.most_similar(word, topn=topn)
-        add_to_graph(word, alist, graph)
-        return
-    else:
-        # generate wordlist, then call recurse_add_ with each word in wordlist, with depth-1
-        alist = wvmodel.most_similar(word, topn=topn)
-        for wtuple in alist:
-            aword, _ = wtuple
-            recurse_add_(aword, wvmodel, graph, depth=depth-1, topn=topn)
 
-def count_words(myp_p, journ, path_phraser_models, lista):
+
+
+def scan_processed_with_phraser_(path_journal_processed, journ, path_phraser_models):
+    print ("Launching scan of "+journ)
+    # load the phraser model of the given journal name from given path
     fpath = path_phraser_models + '/' + journ + '_00_bigramphraser'
-    print (fpath)
-    
     bigram = Phraser.load(fpath)
+    
+    # dict of dicts; filenames as key, dict of frequency {word:count} as value
     texts = {}
     
-    for fname in os.listdir(myp_p):
-        text = []
-        for line in open(myp_p + '/' + fname, 'r'):
-            text = text + bigram[line.split()]
-        frequency = defaultdict(float)
-        for word in text:
-            frequency[word] += 1
-        
-        texts[fname] = frequency
+    # iterate over all data from that journal
+    fnames = os.listdir(path_journal_processed)
+    ln_fnames = len(fnames)
+    with open('logfile.txt', 'w') as lfh:
+        for i, fname in enumerate(fnames):
+            text = []
+            for line in open(os.path.join(path_journal_processed, fname)):
+                text = text + bigram[line.split()]
+            frequency = defaultdict(float)
+            for word in text:
+                frequency[word] += 1
+            
+            # add the frequency counts of this text file to master dict
+            texts[fname] = frequency
+            if i%150==0:
+                lfh.write("Done scanning "+fname+" ; {} out of {}".format(i+1, ln_fnames) + '\n')
+                lfh.flush()
     
-    word_count = {}   
+    return texts
+
+
+
+"""
+sample of output:
+ '2016-6-7_0h0m1s__1606951162.html.txt': 0.0,
+ '2016-7-7_18h45m3s__1627334438.html.txt': 0.0,
+ '2016-3-10_0h0m3s__75310207.html.txt': 0.0,
+ '2017-3-3_18h55m4s__609229536.html.txt': 0.0,
+ '2017-1-31_18h55m1s__-388621826.html.txt': 0.0,
+ '2016-6-21_0h15m1s__-1174394998.html.txt': 1.9988387823104858,
+ '2016-11-17_18h41m3s__-284676987.html.txt': 1.0,
+ '2017-1-31_19h0m1s__1566972843.html.txt': 0.99805748462677,
+ '2016-11-9_18h35m2s__-86299334.html.txt': 0.0,
+ '2016-12-12_18h32m0s__660548271.html.txt': 2.9954553842544556,
+ '2017-5-3_19h0m2s__1124014970.html.txt': 0.0,
+ '2017-10-11_20h0m2s__2060593936.html.txt': 0.0,
+ '2017-12-28_18h30m3s__-62115611.html.txt': 0.0,
+"""
+def count_words(texts, words_and_weights):
+    
+    # will be returned .. dict to hold "how much" the input cluster occured in any given date
+    cluster_occurence_measure = {}
     
     for fname in texts.keys():
         count = 0.0
-        for word in lista.keys() :
+        for word in words_and_weights.keys() :
             if word in texts[fname].keys() :
-                count = count + texts[fname][word] * lista[word]
-        word_count[fname] = count
+                count = count + texts[fname][word] * words_and_weights[word]
+        cluster_occurence_measure[fname] = count
         
-    return word_count
+    return cluster_occurence_measure
 
-def word_add_(word, wvmodel, lista, depth=1, topn=5):
+
+
+"""
+returns nothing
+adds stuff to word_dict; a dict of lists, each list contains tuples
+not meant to be used externally
+"""
+def _word_add(word, wvmodel, word_dict, depth, topn=5):
     if depth==1:
-        lista[word] = wvmodel.most_similar(word, topn=topn)
+        # wvm.most_similar returns a list of tuples e.g. ('life', 0.877867) ... this needs to be handled by calling function
+        word_dict[word] = wvmodel.most_similar(word, topn=topn)
         return
     else:
         for wtuple in wvmodel.most_similar(word, topn=topn):
             aword, _ = wtuple
-            word_add_(aword, wvmodel, lista, depth=depth-1, topn=topn)
+            _word_add(aword, wvmodel, word_dict, depth=depth-1, topn=topn)
+
+
 
 
 """
-get all words from word2vec model(wvm) within topn = tn related to the word keyword
+get top n words and their similarity measures from word2vec model related to keyword
+basically, get_words generates a dict with words as keys, and similarities to seed word as values
+e.g. get_words(wvm, 'life') generates
+
+{u'believe': 0.9959285259246826,
+ u'ever': 0.9852045774459839,
+ u'feel': 0.9888585805892944,
+ u'going': 0.9956641793251038,
+ u'got': 0.9888046383857727,
+ u'hard': 1.0,
+ u'history': 0.9895085096359253,
+ ....
 """
 def get_words(wvm, keyword, depth=2, tn=5):
     vocab = wvm.vocab
     all_words = [x for x in vocab.keys()]
-    l_words_dict = {}
+    words_dict = {}
     
+    # recursively "discover" words related to keyword, and add them all to words_dict 
     if keyword in all_words:
-        word_add_(keyword, wvm, l_words_dict, depth=depth, topn=tn)
+        _word_add(keyword, wvm, words_dict, depth=depth, topn=tn)
     else:
-        #print ("Word "+keyword+" not found.")
         raise ValueError
 
-    l_words_simpl = {}
-    for w in l_words_dict :
-        l_words_simpl[w] = 1.0
-        for ww in l_words_dict[w]:
-            l_words_simpl[ww[0]]=ww[1]
-    return l_words_simpl
+    ret = {}
+    for w in words_dict :
+        # it's unclear why this 1.0 weight (?) is needed..but AF used it in every instance of word_add, so let's keep it
+        ret[w] = 1.0
+        # for all other words that were discovered...
+        for ww in words_dict[w]:
+            # ... add it to the result dict with weight
+            ret[ww[0]]=ww[1]
+    return ret
 
 
 def similarity(list1,list2, wvm):
@@ -108,27 +148,3 @@ def similarity(list1,list2, wvm):
     for i in range(1,l2):
         t2 = np.sum((t2,wvm[l2_keys[i]]),axis=0)
     return 1 - spatial.distance.cosine(t1/l1, t2/l2)
-
-"""
-path_models = 'word2vec_models'
-journalfilenames = ['IN-thehindu-opinion',
-    'IN-indianexpress-india',
-    'IN-indianexpress-opinion',
-    'IN-indianexpress-editorials',
-    'IN-thetimesofindia_00',
-    'IN-thetimesofindia_01']
-
-def print_similarities_between_k_lists(klist1, klist2):
-    for journal in journalfilenames:
-        wvm = Word2Vec.load(path_models+'/'+journalfilenames[-1]+'_with_phraser').wv
-        permut1 = list(itertools.chain(itertools.product(klist1, klist2)))
-        for pair in permut1:
-            word1, word2 = pair
-            try:
-                list1 = get_words(wvm, word1)
-                list2 = get_words(wvm, word2)
-            except ValueError:
-                continue
-            sim = similarity(list1, list2, wvm)
-            print ("Journal {0} ; between {1} and {2} is {3:.4f}".format(journal, word1, word2, sim))
-"""
